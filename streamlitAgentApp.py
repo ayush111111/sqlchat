@@ -14,20 +14,7 @@ import nest_asyncio
 
 
 st.set_page_config(page_title="RAG")
-st.title("Talk to your Data ")
-
-
-
-
-
-
-
-
-
-
-
-
-
+st.title("Talk to your Data")
 
 
 def input_fields():
@@ -75,8 +62,14 @@ async def a_query_llm(llm, provider,query):
     
     return responses
 
-def query_llm(llm, provider,query):
-    endpoint = str(llm+"@"+provider)  
+
+async def fetch_responses(query):
+    response1 = a_query_llm(st.session_state.llm1, st.session_state.provider1, query)
+    response2 = a_query_llm(st.session_state.llm2, st.session_state.provider2, query)
+    return await asyncio.gather(response1, response2)
+
+def query_llm(llm, provider, query):
+    endpoint = f"{llm}@{provider}"  
     unify = Unify(
         api_key=st.session_state.UNIFY_KEY,
         endpoint=endpoint
@@ -92,10 +85,10 @@ def boot():
     # st.button("Submit Documents", on_click=process_documents)
     
     #store messages in a list
-    if "messages_1" not in st.session_state:
+    if "messages1" not in st.session_state:
         st.session_state.messages1 = []
     
-    if "messages_2" not in st.session_state:
+    if "messages2" not in st.session_state:
         st.session_state.messages2 = []
     
     
@@ -108,29 +101,35 @@ def boot():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader(str(st.session_state.llm1 + '@' + st.session_state.provider1))
-        # for message in st.session_state.messages1:
-        #     st.chat_message('You').write(message[0])
-        #     st.chat_message('1').write(message[1])   
+        st.subheader(f"{st.session_state.llm1}@{st.session_state.provider1}")
+        for message in st.session_state.messages1:
+            st.chat_message('You').write(message[0])
+            st.chat_message('1').write(message[1])   
     
     with col2:  
-        st.subheader(str(st.session_state.llm2 + '@' + st.session_state.provider2))    
-        # for message in st.session_state.messages2:
-        #     st.chat_message('You').write(message[0])
-        #     st.chat_message('2').write(message[1])    
+        st.subheader(f"{st.session_state.llm2}@{st.session_state.provider2}")
+        for message in st.session_state.messages2:
+            st.chat_message('You').write(message[0])
+            st.chat_message('2').write(message[1])    
 
     if query := st.chat_input(): 
+        responses = asyncio.run(fetch_responses(query))
+         # Update the message histories
+        st.session_state.messages1.append((query, responses[0]))
+        st.session_state.messages2.append((query, responses[1]))
+ 
         with col1:
-            response1 = asyncio.run(a_query_llm(st.session_state.llm1,st.session_state.provider1, query))
+            st.chat_message("You").write(query)
+            
             # response1 = query_llm(st.session_state.llm1,st.session_state.provider1, query)
-            st.chat_message("1").write(response1)
+            st.chat_message("1").write(responses[0])
 
             
         with col2:
             st.chat_message("You").write(query)
             # response2 = query_llm(st.session_state.llm2,st.session_state.provider2, query)
-            response2 = asyncio.run(a_query_llm(st.session_state.llm2,st.session_state.provider2, query))
-            st.chat_message("2").write(response2)
+            
+            st.chat_message("2").write(responses[1])
 
 
 
